@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime Speech Recognition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Realtime Speech Recognition</h1>
+    
+    <div id="status" class="disconnected">Disconnected from server</div>
+    
+    <div class="button-group">
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+        <button id="startMicBtn" disabled>Start Microphone</button>
+        <button id="stopMicBtn" disabled>Stop Microphone</button>
+    </div>
+    
+    <div id="micStatus">Microphone: Off</div>
+    
+    <h2>Transcript</h2>
+    <div id="transcript"></div>
+    <div id="partial"></div>
+    
+    <script>
+        const statusEl = document.getElementById('status');
+        const transcriptEl = document.getElementById('transcript');
+        const partialEl = document.getElementById('partial');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const startMicBtn = document.getElementById('startMicBtn');
+        const stopMicBtn = document.getElementById('stopMicBtn');
+        const micStatusEl = document.getElementById('micStatus');
+        
+        let socket = null;
+        let isMicActive = false;
+        let partialTextBuffer = "";
+        let lastUpdateTime = 0;
+        
+        // Event listeners
+        connectBtn.addEventListener('click', connectWebSocket);
+        disconnectBtn.addEventListener('click', disconnectWebSocket);
+        startMicBtn.addEventListener('click', startMicrophone);
+        stopMicBtn.addEventListener('click', stopMicrophone);
+        
+        async function connectWebSocket() {
+            const wsUrl = 'ws://localhost:8080/ws';
+            
+            try {
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = () => {
+                    statusEl.textContent = 'Connected to server';
+                    statusEl.className = 'status connected';
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    startMicBtn.disabled = false;
+                    transcriptEl.textContent = '';
+                    partialEl.textContent = '';
+                    console.log('WebSocket connected');
+                };
+                
+                socket.onclose = () => {
+                    statusEl.textContent = 'Disconnected from server';
+                    statusEl.className = 'status disconnected';
+                    resetUI();
+                    console.log('WebSocket disconnected');
+                };
+                
+                socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    statusEl.textContent = 'Connection error';
+                    statusEl.className = 'status disconnected';
+                };
+
+                socket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const now = Date.now();
+                    
+                    if (data.type === 'final') {
+                        transcriptEl.innerHTML += `<p>${data.text}</p>`;
+                        partialEl.textContent = '';
+                    } else if (data.type === 'partial' && data.text.trim().length > 0) {
+                        partialEl.textContent = data.text;
+                    }
+                    
+                    // Auto-scroll
+                    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+                    partialEl.scrollTop = partialEl.scrollHeight;
+                };
+
+            function autoScroll() {
+                transcriptEl.scrollTop = transcriptEl.scrollHeight;
+            }
+
+            } catch (error) {
+                console.error('Connection failed:', error);
+                alert('Connection failed: ' + error.message);
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (socket) {
+                socket.close();
+            }
+            stopMicrophone();
+        }
+
+        function startMicrophone() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert('Please connect to server first');
+                return;
+            }
+            
+            isMicActive = true;
+            micStatusEl.textContent = 'Microphone: On (speak now)';
+            startMicBtn.disabled = true;
+            stopMicBtn.disabled = false;
+            console.log('Microphone activated');
+            
+            // Kirim pesan ke server untuk mulai mendengarkan
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ action: 'start' }));
+            }
+        }
+        
+        function stopMicrophone() {
+            isMicActive = false;
+            micStatusEl.textContent = 'Microphone: Off';
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            console.log('Microphone deactivated');
+            
+            // Kirim pesan ke server untuk berhenti mendengarkan
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ action: 'stop' }));
+            }
+        }
+        
+        function resetUI() {
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            startMicBtn.disabled = true;
+            stopMicBtn.disabled = true;
+            micStatusEl.textContent = 'Microphone: Off';
+            partialEl.textContent = '';
+            isMicActive = false;
+        }
+
+        // Auto-scroll transcript
+        function autoScroll() {
+            transcriptEl.scrollTop = transcriptEl.scrollHeight;
+        }
+    </script>
+</body>
+</html>

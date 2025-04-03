@@ -16,7 +16,7 @@ os.environ["OLLAMA_KEEP_ALIVE"] = "5m"  # Pertahankan model di memory
 MODEL_NAME = "vosk-model-en-us-0.42-gigaspeech"
 SAMPLE_RATE = 16000
 BUFFER_SIZE = 2048
-OLLAMA_MODEL = "aratan/deepseek-r1:latest"  # Gunakan versi quantized
+OLLAMA_MODEL = "mistral:latest"  # Gunakan versi quantized
 
 # Cek GPU dengan detail
 def check_gpu():

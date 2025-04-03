@@ -20,7 +20,7 @@ def chat_with_model():
             break
         
         response = ollama.chat(
-            model="deepseek-r1:14b",
+            model="mistral:latest",
             messages=[{"role": "user", "content": user_input}]
         )
         
