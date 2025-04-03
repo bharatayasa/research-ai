@@ -21,7 +21,8 @@ MODEL_NAME = "vosk-model-en-us-0.42-gigaspeech"
 SAMPLE_RATE = 16000
 BUFFER_SIZE = 2048
 # OLLAMA_MODEL = "mistral:latest"
-OLLAMA_MODEL = "gemma3:12b"
+# OLLAMA_MODEL = "deepseek-r1:14b"
+OLLAMA_MODEL = "phi4:latest"
 WS_PORT = 8765
 
 # Load model Vosk
@@ -135,16 +136,16 @@ async def generate_response(prompt, websocket):
             )
             
             for chunk in stream:
-                if time.time() - start_time > 120:
+                if time.time() - start_time > 240:
                     raise TimeoutError("LLM response timeout")
                 
                 content = chunk['message']['content']
                 full_response += content
                 
-                for char in content:
+                for word in content:
                     await websocket.send(json.dumps({
                         "type": "response_chunk",
-                        "text": char,
+                        "text": word,
                         "complete": False
                     }))
                     await asyncio.sleep(chunk_delay)

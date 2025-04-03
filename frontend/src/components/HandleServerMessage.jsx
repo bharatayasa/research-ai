@@ -136,7 +136,7 @@ const handleResponseChunk = (text, setMessages) => {
                 }
             ];
         }
-        
+
         return [
             ...prev,
             { 
