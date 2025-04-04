@@ -18,7 +18,7 @@ function ChatApp() {
     return (
 
 <div className="flex flex-col h-screen">
-    <div className="fixed w-full top-0 z-50 bg-blue-200/10 backdrop-blur-lg shadow-2xl mb-20">
+    <div className="fixed w-full top-0 z-50 bg-blue-200/10 backdrop-blur-lg shadow-2xl">
         <div className="max-w-full mx-auto">
             <div className="px-80 items-center gap-2">
                 <HeaderContainer />
@@ -26,7 +26,7 @@ function ChatApp() {
         </div>
     </div>
 
-    <div className="flex-1 mt-20">
+    <div className="flex-1 mt-20 mb-24">
         <ChatContainer messages={messages} setMessages={setMessagesGlobal} />
     </div>
 

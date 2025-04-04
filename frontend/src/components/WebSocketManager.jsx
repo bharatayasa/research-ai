@@ -1,14 +1,20 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const useWebSocket = (onMessageReceived, setMessages) => {
     const [isConnected, setIsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
-    const [connectionStatus, setConnectionStatus] = useState('Connecting...');
     const ws = useRef(null);
+    const reconnectAttempts = useRef(0);
+    const maxReconnectAttempts = 5;
+    const reconnectInterval = 3000; // 3 detik
 
     const connectWebSocket = () => {
+        if (isConnecting || (ws.current && ws.current.readyState === WebSocket.OPEN)) {
+            return;
+        }
+
         setIsConnecting(true);
-        setConnectionStatus('Connecting...');
+        reconnectAttempts.current += 1;
 
         try {
             ws.current = new WebSocket('ws://localhost:8765');
@@ -16,7 +22,8 @@ const useWebSocket = (onMessageReceived, setMessages) => {
             ws.current.onopen = () => {
                 setIsConnected(true);
                 setIsConnecting(false);
-                setConnectionStatus('Connected');
+                reconnectAttempts.current = 0;
+                console.log('WebSocket connected');
             };
 
             ws.current.onmessage = (event) => {
@@ -24,8 +31,6 @@ const useWebSocket = (onMessageReceived, setMessages) => {
                     const data = JSON.parse(event.data);
                     if (onMessageReceived && typeof onMessageReceived === 'function') {
                         onMessageReceived(data, setMessages);
-                    } else {
-                        console.error('onMessageReceived is not a valid function');
                     }
                 } catch (error) {
                     console.error('Error parsing message:', error);
@@ -35,22 +40,52 @@ const useWebSocket = (onMessageReceived, setMessages) => {
             ws.current.onclose = () => {
                 setIsConnected(false);
                 setIsConnecting(false);
-                setConnectionStatus('Disconnected');
+                
+                // Coba reconnect jika bukan karena close manual
+                if (reconnectAttempts.current < maxReconnectAttempts) {
+                    setTimeout(() => connectWebSocket(), reconnectInterval);
+                }
             };
 
             ws.current.onerror = (error) => {
                 console.error('WebSocket error:', error);
                 setIsConnecting(false);
-                setConnectionStatus('Connection error');
+                setIsConnected(false);
+                ws.current.close();
             };
+
         } catch (error) {
             console.error('WebSocket initialization error:', error);
             setIsConnecting(false);
-            setConnectionStatus('Connection failed');
+            setIsConnected(false);
         }
     };
 
-    return { ws, isConnected, isConnecting, connectionStatus, connectWebSocket };
+    const disconnectWebSocket = () => {
+        if (ws.current) {
+            ws.current.onclose = null;
+            ws.current.close();
+            ws.current = null;
+        }
+        setIsConnected(false);
+        setIsConnecting(false);
+        reconnectAttempts.current = 0;
+    };
+
+    // Cleanup saat unmount
+    useEffect(() => {
+        return () => {
+            disconnectWebSocket();
+        };
+    }, []);
+
+    return { 
+        ws, 
+        isConnected, 
+        isConnecting, 
+        connectWebSocket, 
+        disconnectWebSocket 
+    };
 };
 
 export default useWebSocket;

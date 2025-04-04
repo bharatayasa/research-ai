@@ -49,9 +49,16 @@ const MarkdownMessage = ({ content }) => {
                                     <Clipboard className="w-4 h-4" />
                                 </CopyButton>
                             </div>
-                                <SyntaxHighlighter className="rounded-xl" language={match[1]} style={coldarkDark} PreTag="div" showLineNumbersm apLines{...props} >
-                                    {codeString}
-                                </SyntaxHighlighter>
+                            <SyntaxHighlighter
+                                className="rounded-lg"
+                                language={match[1]}
+                                style={coldarkDark}
+                                PreTag="div"
+                                showLineNumbers={true}
+                                {...props}
+                            >
+                                {codeString}
+                            </SyntaxHighlighter>
                         </div>
                     ) : (
                         <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto relative">

@@ -11,20 +11,28 @@ function HeaderContainer() {
     };
 
     useEffect(scrollToBottom, [messages]);
-    const { ws, isConnected, isConnecting, connectWebSocket } = useWebSocket(handleServerMessage, setMessages);
+    
+    const { 
+        ws, 
+        isConnected, 
+        isConnecting, 
+        connectWebSocket,
+        disconnectWebSocket
+    } = useWebSocket(handleServerMessage, setMessages);
 
     useEffect(() => {
         connectWebSocket();
+        return () => disconnectWebSocket();
     }, []);
 
     const reconnectWebSocket = () => {
-        if (!isConnecting && ws.current?.readyState !== WebSocket.OPEN) {
+        if (!isConnecting && (!ws.current || ws.current.readyState !== WebSocket.OPEN)) {
             connectWebSocket();
         }
     };
 
     return (
-        <div className="flex justify-between mb-6 mt-5">
+        <div className="flex justify-between my-3">
             <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     Deep Talk
@@ -47,7 +55,7 @@ function HeaderContainer() {
                 <button
                     onClick={reconnectWebSocket}
                     disabled={isConnecting || isConnected}
-                    className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-0"
                     title="Reconnect"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
