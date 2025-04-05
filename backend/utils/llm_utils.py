@@ -2,9 +2,12 @@
 import json
 import time
 import ollama
-from config import OLLAMA_MODEL
+from config import OLLAMA_MODEL, RAG_CONFIG
 import asyncio
 from colorama import Fore, Style, init
+from rag.retriever import Retriever
+
+retriever = Retriever()
 
 def preload_llm_model():
     print(Fore.CYAN + "🔥 Pre-loading LLM with test inference..." + Style.RESET_ALL)
@@ -16,64 +19,68 @@ def preload_llm_model():
         print(Fore.RED + f"❌ Model loading failed: {str(e)}" + Style.RESET_ALL)
         raise
 
-async def generate_response(prompt, websocket):
+def embed_text(self, text: str):
+    """Generate embeddings using Ollama"""
     try:
-        if not prompt or len(prompt.strip()) == 0:
-            await websocket.send(json.dumps({
-                "type": "error",
-                "message": "Empty prompt received"
-            }))
-            return ""
+        response = ollama.embeddings(
+            model=RAG_CONFIG["EMBEDDING_MODEL"],
+            prompt=text
+        )
+        print(response)
+        return response["embedding"]
+    except Exception as e:
+        raise RuntimeError(f"Embedding generation failed: {str(e)}")
+
+async def generate_response(prompt, websocket, conversation_history=None):
+    try:
+        # Prepare messages
+        messages = []
+        
+        # Add conversation history if exists
+        if conversation_history:
+            messages.extend(conversation_history)
+        
+        # Add RAG context
+        relevant_chunks = retriever.retrieve(prompt)
+        if relevant_chunks:
+            messages.append({
+                "role": "system",
+                "content": f"Context:\n{'\n'.join(relevant_chunks)}"
+            })
+        
+        # Add current prompt
+        messages.append({"role": "user", "content": prompt})
 
         await websocket.send(json.dumps({"type": "status", "message": "🤖 Processing..."}))
-        
-        start_time = time.time()
-        full_response = ""
-        chunk_delay = 0.05 
-        
-        try:
-            stream = ollama.chat(
-                model=OLLAMA_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                stream=True
-            )
-            
-            for chunk in stream:
-                if time.time() - start_time > 240:
-                    raise TimeoutError("LLM response timeout")
-                
-                content = chunk['message']['content']
-                full_response += content
-                
-                for word in content:
-                    await websocket.send(json.dumps({
-                        "type": "response_chunk",
-                        "text": word,
-                        "complete": False
-                    }))
-                    await asyncio.sleep(chunk_delay)
 
-        except ollama.ResponseError as e:
+        # Stream response
+        full_response = ""
+        stream = ollama.chat(
+            # model=OLLAMA_MODEL,
+            model=RAG_CONFIG["LLM_MODEL"],  # Gunakan model dari RAG_CONFIG
+            messages=messages,
+            stream=True
+        )
+
+        for chunk in stream:
+            content = chunk['message']['content']
+            full_response += content
+            
             await websocket.send(json.dumps({
-                "type": "error",
-                "message": f"LLM Error: {e.error}"
+                "type": "response_chunk",
+                "text": content,
+                "complete": False
             }))
-            raise
-        
+            await asyncio.sleep(0.05)
+
         await websocket.send(json.dumps({
             "type": "response_complete",
             "text": full_response,
             "complete": True
         }))
-        
-        elapsed = time.time() - start_time
-        await websocket.send(json.dumps({
-            "type": "status",
-            "message": f"⏱ Response time: {elapsed:.2f}s"
-        }))
-        
+
         return full_response
-        
+
     except Exception as e:
         await websocket.send(json.dumps({
             "type": "error",
